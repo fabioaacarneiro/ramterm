@@ -119,6 +119,15 @@ Application::Application()
     requestRender_ = true;
   });
 
+  window_.setFontZoomCallback([this](int delta) {
+    int sz = fontManager_.getPixelSize() + delta;
+    if (sz < 6) sz = 6;
+    if (sz > 256) sz = 256;
+    fontManager_.setPixelSize(sz);
+    applyFontMetricsAndResize();
+    requestRender_ = true;
+  });
+
   window_.setCopyCallback([this]() {
     std::string s = terminal_.getSelectedText();
     if (!s.empty()) window_.setClipboardString(s);
@@ -212,6 +221,23 @@ void Application::onResize(int pixelWidth, int pixelHeight) {
   terminal_.resize(rows, cols);
 
   pumpPty();
+}
+
+void Application::applyFontMetricsAndResize() {
+  Renderer::Metrics metrics;
+  float cw = static_cast<float>(fontManager_.getGlyphAdvance('M'));
+  float ch = static_cast<float>(fontManager_.getLineHeight());
+  float asc = static_cast<float>(fontManager_.getAscender());
+  const int sz = fontManager_.getPixelSize();
+  if (cw < 4.0f) cw = static_cast<float>(sz) * 0.6f;
+  if (ch < 4.0f) ch = static_cast<float>(sz) * 1.2f;
+  if (asc < 1.0f) asc = ch * 0.8f;
+  metrics.cellWidth = cw;
+  metrics.cellHeight = ch;
+  metrics.ascent = asc;
+  metrics.fontSize = static_cast<float>(sz);
+  renderer_.setMetrics(metrics);
+  onResize(windowWidth_, windowHeight_);
 }
 
 bool Application::pumpPty() {

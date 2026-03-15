@@ -29,11 +29,14 @@ public:
   using MouseButtonCallback = std::function<void(double x, double y, int button, int action)>;
   using CursorPosCallback = std::function<void(double x, double y)>;
   using VoidCallback = std::function<void()>;
-  
+  /** delta: +1 aumentar fonte, -1 diminuir (Ctrl+Plus / Ctrl+Minus). */
+  using FontZoomCallback = std::function<void(int delta)>;
+
   void setMouseButtonCallback(MouseButtonCallback cb) { mouseButtonCallback_ = std::move(cb); }
   void setCursorPosCallback(CursorPosCallback cb) { cursorPosCallback_ = std::move(cb); }
   void setCopyCallback(VoidCallback cb) { copyCallback_ = std::move(cb); }
   void setPasteCallback(VoidCallback cb) { pasteCallback_ = std::move(cb); }
+  void setFontZoomCallback(FontZoomCallback cb) { fontZoomCallback_ = std::move(cb); }
 
 private:
   static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -52,4 +55,5 @@ private:
   CursorPosCallback cursorPosCallback_;
   VoidCallback copyCallback_;
   VoidCallback pasteCallback_;
+  FontZoomCallback fontZoomCallback_;
 };

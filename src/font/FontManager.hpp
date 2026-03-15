@@ -31,6 +31,8 @@ public:
   FontManager &operator=(const FontManager &) = delete;
 
   int getPixelSize() const;
+  /** Altera o tamanho da fonte em pixels (só na sessão atual; não persiste). Limpa o cache de glifos. */
+  void setPixelSize(int sizePx);
   const std::string &getFontPath() const;
 
   int getLineHeight() const;

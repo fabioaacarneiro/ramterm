@@ -117,6 +117,17 @@ void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action,
   }
 
   if (action == GLFW_PRESS) {
+    if (self->fontZoomCallback_) {
+      const bool ctrl = (mods & GLFW_MOD_CONTROL) != 0;
+      if (ctrl && (key == GLFW_KEY_EQUAL || key == GLFW_KEY_KP_ADD)) {
+        self->fontZoomCallback_(1);
+        return;
+      }
+      if (ctrl && (key == GLFW_KEY_MINUS || key == GLFW_KEY_KP_SUBTRACT)) {
+        self->fontZoomCallback_(-1);
+        return;
+      }
+    }
 #ifdef __APPLE__
     if (key == GLFW_KEY_C && (mods & GLFW_MOD_SUPER)) {
       if (self->copyCallback_) self->copyCallback_();
