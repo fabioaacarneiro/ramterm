@@ -51,7 +51,16 @@ sudo make install
 
 ## Configuração
 
-O RamTerm procura `config/config.yaml` no diretório do executável ou em `../config/config`. Se não encontrar, usa valores padrão.
+O RamTerm procura o arquivo de configuração na seguinte ordem (primeiro encontrado):
+
+| Sistema   | Caminho do config |
+|----------|-------------------|
+| Linux / Mac | `~/.config/ramterm/config.yaml` |
+| Linux       | `/etc/ramterm/config.yaml` |
+| Windows     | `%APPDATA%\ramterm\config.yaml` (ex.: `C:\Users\...\AppData\Roaming\ramterm\config.yaml`) |
+| Desenvolvimento | `config/config.yaml` ou `../config/config.yaml` (relativo ao executável) |
+
+Se nenhum for encontrado, usam-se os valores padrão.
 
 Exemplo mínimo:
 
@@ -64,6 +73,8 @@ theme:
   use_default_theme: false   # true = Tango Dark
   background: { r: 40, g: 42, b: 54, a: 255 }
   font_color: { r: 248, g: 248, b: 242, a: 255 }
+  # Cor do destaque da seleção (r, g, b, a 0–255; a = transparência). Se omitido, usa font_color com alpha 89.
+  selection: { r: 248, g: 248, b: 242, a: 89 }
 
 font:
   path: "FiraCodeNerdFontMono-Regular.ttf"   # só o nome ou caminho completo
@@ -74,6 +85,7 @@ shell: "bash"
 
 - **font.path:** nome do arquivo (ex.: `FiraCodeNerdFontMono-Regular.ttf`) ou caminho absoluto. O programa procura em `~/.local/share/fonts/`, `/usr/share/fonts/`, etc.
 - **theme:** `use_default_theme: true` usa Tango Dark; `false` usa as cores definidas (incluindo `palette_0`–`palette_15` para a paleta ANSI).
+- **theme.selection:** cor do destaque da seleção de texto (r, g, b, a em 0–255). O alpha controla a transparência (ex.: 89 ≈ 0,35). Se omitido, usa a cor do texto com alpha 89.
 
 ## Estrutura do projeto
 
@@ -95,4 +107,28 @@ RamTerm/
 
 ## Licença
 
-[Definir licença — por exemplo MIT, GPL, etc.]
+RamTerm é distribuído sob a **Licença MIT**.
+
+```
+Copyright (c) 2025 RamTerm contributors
+
+Permissão é concedida, gratuitamente, a qualquer pessoa que obtenha uma cópia
+deste software e dos arquivos de documentação associados (o "Software"), para
+tratar o Software sem restrições, incluindo, sem limitação, os direitos de
+usar, copiar, modificar, fundir, publicar, distribuir, sublicenciar e/ou vender
+cópias do Software, e permitir que as pessoas a quem o Software seja fornecido
+o façam, sob as seguintes condições:
+
+O aviso de copyright acima e este aviso de permissão devem ser incluídos em
+todas as cópias ou partes substanciais do Software.
+
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIA DE QUALQUER TIPO, EXPRESSA OU
+IMPLÍCITA, INCLUINDO, MAS NÃO SE LIMITANDO ÀS GARANTIAS DE COMERCIALIZAÇÃO,
+ADEQUAÇÃO A UM PROPÓSITO ESPECÍFICO E NÃO VIOLAÇÃO. EM NENHUM CASO OS AUTORES
+OU DETENTORES DOS DIREITOS AUTORAIS SERÃO RESPONSÁVEIS POR QUALQUER RECLAMAÇÃO,
+DANOS OU OUTRA RESPONSABILIDADE, SEJA EM AÇÃO DE CONTRATO, DELITO OU DE OUTRA
+FORMA, DECORRENTE DE, OU EM CONEXÃO COM O SOFTWARE OU O USO OU OUTRAS NEGOCIAÇÕES
+NO SOFTWARE.
+```
+
+Em inglês: [MIT License](https://opensource.org/licenses/MIT) — substitua "2025" e "RamTerm contributors" pelo ano e nome que desejar.

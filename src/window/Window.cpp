@@ -28,6 +28,8 @@ Window::Window(int width, int height, const std::string &title)
   glfwSetKeyCallback(handle_, Window::keyCallback);
   glfwSetCharCallback(handle_, Window::charCallback);
   glfwSetScrollCallback(handle_, Window::scrollCallback);
+  glfwSetMouseButtonCallback(handle_, Window::mouseButtonCallback);
+  glfwSetCursorPosCallback(handle_, Window::cursorPosCallback);
   glfwSetFramebufferSizeCallback(handle_, Window::framebufferSizeCallback);
   glfwGetFramebufferSize(handle_, &width_, &height_);
 }
@@ -64,6 +66,20 @@ int Window::getHeight() const {
   return height_;
 }
 
+int Window::getWindowWidth() const {
+  if (!handle_) return 0;
+  int w = 0, h = 0;
+  glfwGetWindowSize(handle_, &w, &h);
+  return w > 0 ? w : 1;
+}
+
+int Window::getWindowHeight() const {
+  if (!handle_) return 0;
+  int w = 0, h = 0;
+  glfwGetWindowSize(handle_, &w, &h);
+  return h > 0 ? h : 1;
+}
+
 bool Window::isIconified() const {
   return handle_ && glfwGetWindowAttrib(handle_, GLFW_ICONIFIED);
 }
@@ -80,15 +96,46 @@ double Window::consumeScrollDelta() {
   return value;
 }
 
+void Window::setClipboardString(const std::string& text) const {
+  if (handle_) glfwSetClipboardString(handle_, text.c_str());
+}
+
+std::string Window::getClipboardString() const {
+  if (!handle_) return {};
+  const char* p = glfwGetClipboardString(handle_);
+  return p ? std::string(p) : std::string();
+}
+
 void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action,
                          int mods) {
   (void)scancode;
-  (void)mods;
 
   auto *self = static_cast<Window *>(glfwGetWindowUserPointer(window));
 
   if (!self) {
     return;
+  }
+
+  if (action == GLFW_PRESS) {
+#ifdef __APPLE__
+    if (key == GLFW_KEY_C && (mods & GLFW_MOD_SUPER)) {
+      if (self->copyCallback_) self->copyCallback_();
+      return;
+    }
+    if (key == GLFW_KEY_V && (mods & GLFW_MOD_SUPER)) {
+      if (self->pasteCallback_) self->pasteCallback_();
+      return;
+    }
+#else
+    if (key == GLFW_KEY_C && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
+      if (self->copyCallback_) self->copyCallback_();
+      return;
+    }
+    if (key == GLFW_KEY_V && (mods & GLFW_MOD_CONTROL) && (mods & GLFW_MOD_SHIFT)) {
+      if (self->pasteCallback_) self->pasteCallback_();
+      return;
+    }
+#endif
   }
 
   if (action != GLFW_PRESS && action != GLFW_REPEAT) {
@@ -201,6 +248,21 @@ void Window::scrollCallback(GLFWwindow *window, double xoffset,
   }
 
   self->scrollDelta_ += yoffset;
+}
+
+void Window::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
+  (void)mods;
+  auto *self = static_cast<Window *>(glfwGetWindowUserPointer(window));
+  if (!self || !self->mouseButtonCallback_) return;
+  double x, y;
+  glfwGetCursorPos(window, &x, &y);
+  self->mouseButtonCallback_(x, y, button, action);
+}
+
+void Window::cursorPosCallback(GLFWwindow *window, double x, double y) {
+  auto *self = static_cast<Window *>(glfwGetWindowUserPointer(window));
+  if (!self || !self->cursorPosCallback_) return;
+  self->cursorPosCallback_(x, y);
 }
 
 void Window::framebufferSizeCallback(GLFWwindow *window, int width,

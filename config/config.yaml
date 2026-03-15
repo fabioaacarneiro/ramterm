@@ -1,4 +1,10 @@
 # RamTerm - config opcional. Se não existir, usam-se os padrões abaixo.
+#
+# Onde o RamTerm procura o config (primeiro encontrado):
+#   - config/config ou ../config/config (diretório do executável / build)
+#   - Linux / Mac: ~/.config/ramterm/config.yaml
+#   - Linux:        /etc/ramterm/config.yaml
+#   - Windows:     %APPDATA%\ramterm\config.yaml  (ex.: C:\Users\...\AppData\Roaming\ramterm\config.yaml)
 
 window:
   width: 800
@@ -11,16 +17,10 @@ window:
 # Cores em 0–255 (r, g, b; a só em background e font_color).
 theme:
   use_default_theme: false
-  background:
-    r: 40
-    g: 42
-    b: 54
-    a: 255
-  font_color:
-    r: 248
-    g: 248
-    b: 242
-    a: 255
+  background: { r: 40, g: 42, b: 54, a: 255 }
+  font_color: { r: 248, g: 248, b: 242, a: 255 }
+  # Cor do destaque da seleção (r, g, b, a em 0–255; a = transparência, ex.: 89 ≈ 0.35). Se omitido, usa font_color com alpha 89.
+  selection: { r: 24, g: 248, b: 242, a: 89 }
   # Paleta ANSI: 0=preto, 1=vermelho, 2=verde, 3=amarelo, 4=azul, 5=magenta, 6=cyan, 7=branco; 8–15=brilho alto (Dracula)
   palette_0:  { r: 40,  g: 42,  b: 54  }
   palette_1:  { r: 255, g: 85,  b: 85  }

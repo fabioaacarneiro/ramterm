@@ -34,6 +34,13 @@ public:
   int getScrollOffset() const { return scrollOffset_; }
   int getScrollbackLines() const { return static_cast<int>(scrollback_.size()); }
 
+  /** Seleção em coordenadas da tela visível (0-based). -1 = sem seleção. */
+  void setSelection(int startRow, int startCol, int endRow, int endCol);
+  void getSelection(int& startRow, int& startCol, int& endRow, int& endCol) const;
+  bool hasSelection() const;
+  /** Texto da seleção atual em UTF-8 (usa o buffer visível). */
+  std::string getSelectedText() const;
+
 private:
   void buildViewBuffer() const;
   static int damageCallback(VTermRect rect, void* user);
@@ -68,4 +75,9 @@ private:
   mutable VTermScreenBuffer viewBuffer_;
   std::deque<std::vector<TermCell>> scrollback_;
   int scrollOffset_ = 0;
+
+  int selStartRow_ = -1;
+  int selStartCol_ = -1;
+  int selEndRow_ = -1;
+  int selEndCol_ = -1;
 };
