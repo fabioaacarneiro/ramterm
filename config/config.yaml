@@ -1,0 +1,49 @@
+# RamTerm - config opcional. Se não existir, usam-se os padrões abaixo.
+
+window:
+  width: 800
+  height: 600
+  # title: "bonito"
+
+# Tema do terminal.
+# use_default_theme: true  -> ignora o tema abaixo e usa Tango Dark (padrão do terminal).
+# use_default_theme: false -> usa o tema personalizado (background, font_color, palette_0 a palette_15).
+# Cores em 0–255 (r, g, b; a só em background e font_color).
+theme:
+  use_default_theme: false
+  background:
+    r: 40
+    g: 42
+    b: 54
+    a: 255
+  font_color:
+    r: 248
+    g: 248
+    b: 242
+    a: 255
+  # Paleta ANSI: 0=preto, 1=vermelho, 2=verde, 3=amarelo, 4=azul, 5=magenta, 6=cyan, 7=branco; 8–15=brilho alto (Dracula)
+  palette_0:  { r: 40,  g: 42,  b: 54  }
+  palette_1:  { r: 255, g: 85,  b: 85  }
+  palette_2:  { r: 80,  g: 250, b: 123 }
+  palette_3:  { r: 241, g: 250, b: 140 }
+  palette_4:  { r: 189, g: 147, b: 249 }
+  palette_5:  { r: 255, g: 121, b: 198 }
+  palette_6:  { r: 139, g: 233, b: 253 }
+  palette_7:  { r: 248, g: 248, b: 242 }
+  palette_8:  { r: 98,  g: 114, b: 164 }
+  palette_9:  { r: 255, g: 85,  b: 85  }
+  palette_10: { r: 80,  g: 250, b: 123 }
+  palette_11: { r: 241, g: 250, b: 140 }
+  palette_12: { r: 189, g: 147, b: 249 }
+  palette_13: { r: 255, g: 121, b: 198 }
+  palette_14: { r: 139, g: 233, b: 253 }
+  palette_15: { r: 255, g: 255, b: 255 }
+
+# font.path: só o nome do arquivo (ex.: FiraCodeNerdFontMono-Regular.ttf) ou caminho completo
+font:
+  path: "FiraCodeNerdFontMono-Regular.ttf"
+  size: 16
+
+shell: "bash"
+#shell: "/home/fabio/.local/bin/oh-my-posh --config /home/fabio/.config/oh-my-posh/config.toml"
+

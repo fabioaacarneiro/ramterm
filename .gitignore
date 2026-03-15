@@ -1,0 +1,46 @@
+# Build
+build/
+out/
+cmake-build-*/
+
+# Executáveis e artefatos
+ramterm
+a.out
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# IDE / editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-*
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Local / ambiente (config com paths pessoais, se quiser versionar só o exemplo)
+# config/config.local.yaml
