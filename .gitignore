@@ -42,5 +42,9 @@ _deps/
 Thumbs.db
 *.log
 
+# Config
+config/config.yaml
+config/
+
 # Local / ambiente (config com paths pessoais, se quiser versionar só o exemplo)
 # config/config.local.yaml
