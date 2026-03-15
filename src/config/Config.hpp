@@ -41,6 +41,8 @@ struct ThemeConfig {
     bool use_default_theme = false;
     BackgroundColor background;
     FontColor font;
+    /** Cor do destaque da seleção (0–255; a = alpha, ex.: 89 para ~0.35). */
+    FontColor selection;
     ThemePalette palette{};
 };
 
@@ -61,6 +63,8 @@ public:
     static AppConfig load(const std::string& path);
     /** Tenta carregar de cada caminho em ordem; usa padrões se nenhum existir. */
     static AppConfig loadFromSearchPaths(const std::vector<std::string>& basePaths);
+    /** Caminhos de config por SO: Linux/Mac ~/.config/ramterm/config, Windows %APPDATA%\\ramterm\\config. */
+    static std::vector<std::string> getDefaultConfigSearchPaths();
     /** Tema padrão do terminal (Tango Dark). Usado quando theme.use_default_theme == true. */
     static ThemeConfig getTangoDarkTheme();
 

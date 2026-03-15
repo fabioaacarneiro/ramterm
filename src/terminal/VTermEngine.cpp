@@ -2,6 +2,29 @@
 #include <algorithm>
 #include <stdexcept>
 
+namespace {
+void appendCodepointUtf8(std::string& out, uint32_t cp) {
+  if (cp <= 0x7Fu) { out += static_cast<char>(cp); return; }
+  if (cp <= 0x7FFu) {
+    out += static_cast<char>(0xC0u | (cp >> 6));
+    out += static_cast<char>(0x80u | (cp & 0x3Fu));
+    return;
+  }
+  if (cp <= 0xFFFFu) {
+    out += static_cast<char>(0xE0u | (cp >> 12));
+    out += static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+    out += static_cast<char>(0x80u | (cp & 0x3Fu));
+    return;
+  }
+  if (cp <= 0x10FFFFu) {
+    out += static_cast<char>(0xF0u | (cp >> 18));
+    out += static_cast<char>(0x80u | ((cp >> 12) & 0x3Fu));
+    out += static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+    out += static_cast<char>(0x80u | (cp & 0x3Fu));
+  }
+}
+}
+
 VTermEngine::VTermEngine(int rows, int columns)
     : rows_(std::max(1, rows)),
       columns_(std::max(1, columns)),
@@ -79,6 +102,7 @@ void VTermEngine::resize(int rows, int columns) {
   viewBuffer_.resize(rows_, columns_);
   scrollback_.clear();
   scrollOffset_ = 0;
+  selStartRow_ = selStartCol_ = selEndRow_ = selEndCol_ = -1;
 
   vterm_set_size(vterm_, rows_, columns_);
   vterm_screen_flush_damage(screen_);
@@ -150,6 +174,104 @@ bool VTermEngine::isUsingAltScreen() const {
   return usingAltScreen_;
 }
 
+void VTermEngine::setSelection(int startRow, int startCol, int endRow, int endCol) {
+  selStartRow_ = startRow;
+  selStartCol_ = startCol;
+  selEndRow_ = endRow;
+  selEndCol_ = endCol;
+}
+
+void VTermEngine::getSelection(int& startRow, int& startCol, int& endRow, int& endCol) const {
+  startRow = selStartRow_;
+  startCol = selStartCol_;
+  endRow = selEndRow_;
+  endCol = selEndCol_;
+}
+
+bool VTermEngine::hasSelection() const {
+  return selStartRow_ >= 0 && selStartCol_ >= 0 && selEndRow_ >= 0 && selEndCol_ >= 0;
+}
+
+std::string VTermEngine::getSelectedText() const {
+  if (!hasSelection()) return {};
+  int r0 = std::min(selStartRow_, selEndRow_);
+  int r1 = std::max(selStartRow_, selEndRow_);
+  int c0 = (selStartRow_ < selEndRow_) ? selStartCol_ : (selStartRow_ > selEndRow_ ? selEndCol_ : std::min(selStartCol_, selEndCol_));
+  int c1 = (selStartRow_ < selEndRow_) ? selEndCol_ : (selStartRow_ > selEndRow_ ? selStartCol_ : std::max(selStartCol_, selEndCol_));
+  if (selStartRow_ == selEndRow_) { c0 = std::min(selStartCol_, selEndCol_); c1 = std::max(selStartCol_, selEndCol_); }
+  r0 = std::max(0, r0);
+  r1 = std::min(rows_ - 1, r1);
+  c0 = std::max(0, c0);
+  c1 = std::min(columns_ - 1, c1);
+  if (r0 > r1 || c0 > c1) return {};
+
+  const VTermScreenBuffer& buf = getActiveBuffer();
+
+  int lastUsedRow = -1;
+  for (int r = rows_ - 1; r >= 0; --r) {
+    for (int c = 0; c < columns_; ++c) {
+      const TermCell& cell = buf.cell(r, c);
+      for (int i = 0; i < cell.nchars && i < kMaxCharsPerCell; ++i) {
+        if (cell.codepoints[i] != 0 && cell.codepoints[i] != static_cast<uint32_t>(' ')) {
+          lastUsedRow = r;
+          goto done_last_used;
+        }
+      }
+    }
+  }
+done_last_used:
+  if (lastUsedRow >= 0 && r1 > lastUsedRow) r1 = lastUsedRow;
+
+  if (r0 == r1) {
+    int lastNonSpace = c0;
+    for (int c = columns_ - 1; c >= c0; --c) {
+      const TermCell& cell = buf.cell(r0, c);
+      bool hasNonSpace = false;
+      for (int i = 0; i < cell.nchars && i < kMaxCharsPerCell; ++i) {
+        const uint32_t cp = cell.codepoints[i];
+        if (cp != 0 && cp != static_cast<uint32_t>(' ')) { hasNonSpace = true; break; }
+      }
+      if (hasNonSpace) { lastNonSpace = c; break; }
+    }
+    c1 = std::min(c1, lastNonSpace);
+  }
+
+  std::string out;
+  for (int r = r0; r <= r1; ++r) {
+    int colStart = (r == r0) ? c0 : 0;
+    int colEnd   = (r == r1) ? c1 : (columns_ - 1);
+    if (r0 != r1) {
+      int lastNonSpaceR = -1;
+      for (int c = columns_ - 1; c >= 0; --c) {
+        const TermCell& cell = buf.cell(r, c);
+        for (int i = 0; i < cell.nchars && i < kMaxCharsPerCell; ++i) {
+          if (cell.codepoints[i] != 0 && cell.codepoints[i] != static_cast<uint32_t>(' ')) {
+            lastNonSpaceR = c;
+            break;
+          }
+        }
+        if (lastNonSpaceR >= 0) break;
+      }
+      if (lastNonSpaceR >= 0) colEnd = std::min(colEnd, lastNonSpaceR);
+      else continue;
+    }
+    for (int c = colStart; c <= colEnd; ++c) {
+      if (c > 0) {
+        const TermCell& prev = buf.cell(r, c - 1);
+        if (prev.width >= 2) continue;
+      }
+      const TermCell& cell = buf.cell(r, c);
+      for (int i = 0; i < cell.nchars && i < kMaxCharsPerCell; ++i) {
+        uint32_t cp = cell.codepoints[i];
+        if (cp != 0 && cp != static_cast<uint32_t>(' ')) appendCodepointUtf8(out, cp);
+        else if (cp == static_cast<uint32_t>(' ')) out += ' ';
+      }
+    }
+    if (r < r1) out += '\n';
+  }
+  return out;
+}
+
 int VTermEngine::damageCallback(VTermRect rect, void* user) {
   auto* self = static_cast<VTermEngine*>(user);
   self->syncRect(rect);
@@ -175,6 +297,7 @@ int VTermEngine::settermpropCallback(VTermProp prop, VTermValue* value, void* us
 
   if (prop == VTERM_PROP_ALTSCREEN) {
     self->usingAltScreen_ = value->boolean != 0;
+    self->selStartRow_ = self->selStartCol_ = self->selEndRow_ = self->selEndCol_ = -1;
     self->syncAll();
     self->syncCursor();
   } else if (prop == VTERM_PROP_CURSORVISIBLE) {

@@ -205,6 +205,19 @@ AppConfig Config::load(const std::string& path) {
                 }
             }
 
+            if (const auto sel = theme["selection"]) {
+                if (sel["r"]) config.theme.selection.r = parseFloat(sel["r"]);
+                if (sel["g"]) config.theme.selection.g = parseFloat(sel["g"]);
+                if (sel["b"]) config.theme.selection.b = parseFloat(sel["b"]);
+                if (sel["a"]) config.theme.selection.a = parseFloat(sel["a"]);
+                if (config.theme.selection.a <= 0.f) config.theme.selection.a = 89.f;
+            } else {
+                config.theme.selection.r = config.theme.font.r;
+                config.theme.selection.g = config.theme.font.g;
+                config.theme.selection.b = config.theme.font.b;
+                config.theme.selection.a = 89.f;
+            }
+
             bool anyPaletteKey = false;
             for (int i = 0; i < 16; ++i) {
                 std::string key = "palette_" + std::to_string(i);
@@ -335,6 +348,26 @@ std::string Config::resolveConfigPath(const std::string& basePath) {
     return "";
 }
 
+std::vector<std::string> Config::getDefaultConfigSearchPaths() {
+    std::vector<std::string> paths;
+    std::string home = getHomeDir();
+#if defined(_WIN32)
+    const char* appData = std::getenv("APPDATA");
+    if (appData && appData[0]) {
+        paths.push_back(std::string(appData) + "\\ramterm\\config");
+    }
+    if (!home.empty()) {
+        paths.push_back(home + "\\AppData\\Roaming\\ramterm\\config");
+    }
+#else
+    if (!home.empty()) {
+        paths.push_back(home + "/.config/ramterm/config");
+    }
+    paths.push_back("/etc/ramterm/config");
+#endif
+    return paths;
+}
+
 ThemeConfig Config::getTangoDarkTheme() {
     ThemeConfig t;
     t.use_default_theme = true;
@@ -346,6 +379,10 @@ ThemeConfig Config::getTangoDarkTheme() {
     t.font.g = 215.f;
     t.font.b = 207.f;
     t.font.a = 255.f;
+    t.selection.r = 211.f;
+    t.selection.g = 215.f;
+    t.selection.b = 207.f;
+    t.selection.a = 89.f;
     // Paleta Tango Dark (0–7 normal, 8–15 bright)
     const float tango[16][3] = {
         { 0.f, 0.f, 0.f },           // 0 black
