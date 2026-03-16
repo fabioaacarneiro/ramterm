@@ -7,7 +7,11 @@
 #include <stdexcept>
 
 #include <fcntl.h>
-#include <pty.h>
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+  #include <util.h>
+#else
+  #include <pty.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <unistd.h>

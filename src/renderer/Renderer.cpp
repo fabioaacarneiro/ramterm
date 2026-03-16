@@ -1,6 +1,10 @@
 #include "renderer/Renderer.hpp"
 
-#include <GL/gl.h>
+#ifdef __APPLE__
+  #include <OpenGL/gl.h>
+#else
+  #include <GL/gl.h>
+#endif
 #include <algorithm>
 #include <cmath>
 /* RamTerm renderer - cor do texto vem de theme.font do config.yaml */
