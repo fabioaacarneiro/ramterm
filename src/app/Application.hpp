@@ -9,7 +9,8 @@
 
 class Application {
 public:
-  Application();
+  /** iconPath: caminho para ramterm-logo.png (opcional; vazio = tenta paths relativos). */
+  explicit Application(const std::string& iconPath = "");
   void run();
   void onResize(int pixelWidth, int pixelHeight);
   /** Retorna true se leu algum dado do PTY (conteúdo do terminal mudou). */

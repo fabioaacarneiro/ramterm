@@ -9,7 +9,8 @@
 
 class VTermEngine {
 public:
-  VTermEngine(int rows, int columns);
+  /** maxScrollbackLines: máximo de linhas no buffer (ex.: 255). Se 0, usa padrão interno. */
+  VTermEngine(int rows, int columns, int maxScrollbackLines = 1000);
   ~VTermEngine();
 
   /** Aplica tema (default fg/bg e paleta 0–15). Deve ser chamado após construção. */
@@ -31,6 +32,8 @@ public:
 
   /** Desloca a view do scrollback; delta > 0 = rolar para cima (ver mais acima). */
   void addScrollOffset(int delta);
+  /** Define o scroll absoluto (0 = fim do conteúdo, getScrollbackLines() = topo do histórico). */
+  void setScrollOffset(int offset);
   int getScrollOffset() const { return scrollOffset_; }
   int getScrollbackLines() const { return static_cast<int>(scrollback_.size()); }
 
@@ -43,6 +46,8 @@ public:
 
 private:
   void buildViewBuffer() const;
+  /** Preenche viewBuffer_ com o canto superior esquerdo (rows_ x columns_) de primaryBuffer_. */
+  void buildTopLeftView() const;
   static int damageCallback(VTermRect rect, void* user);
   static int moverectCallback(VTermRect dest, VTermRect src, void* user);
   static int movecursorCallback(VTermPos pos, VTermPos oldpos, int visible, void* user);
@@ -67,8 +72,9 @@ private:
   VTermScreen* screen_;
   bool usingAltScreen_;
   bool cursorVisible_;
-
-  static constexpr size_t kMaxScrollbackLines = 10000u;
+  /** true após shrink na tela normal: buffer maior que view, não sobrescrever com libvterm. */
+  bool bufferPreserved_ = false;
+  size_t maxScrollbackLines_ = 1000u;
 
   VTermScreenBuffer primaryBuffer_;
   VTermScreenBuffer altBuffer_;

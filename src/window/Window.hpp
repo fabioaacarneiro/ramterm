@@ -6,7 +6,8 @@
 
 class Window {
 public:
-  Window(int width, int height, const std::string &title);
+  /** iconPath: caminho para PNG do ícone (dock/barra); vazio = tenta assets/ramterm-logo.png. */
+  Window(int width, int height, const std::string& title, const std::string& iconPath = "");
   ~Window();
   Window(const Window &) = delete;
   Window &operator=(const Window &) = delete;
@@ -37,6 +38,8 @@ public:
   void setCopyCallback(VoidCallback cb) { copyCallback_ = std::move(cb); }
   void setPasteCallback(VoidCallback cb) { pasteCallback_ = std::move(cb); }
   void setFontZoomCallback(FontZoomCallback cb) { fontZoomCallback_ = std::move(cb); }
+  /** Chamado quando a janela ganha foco (ex.: usuário clicou); útil para forçar redraw. */
+  void setWindowFocusCallback(VoidCallback cb) { windowFocusCallback_ = std::move(cb); }
 
 private:
   static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -45,6 +48,7 @@ private:
   static void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
   static void cursorPosCallback(GLFWwindow *window, double x, double y);
   static void framebufferSizeCallback(GLFWwindow *window, int width, int height);
+  static void windowFocusCallback(GLFWwindow *window, int focused);
 
   GLFWwindow *handle_ = nullptr;
   mutable int width_ = 0;
@@ -56,4 +60,5 @@ private:
   VoidCallback copyCallback_;
   VoidCallback pasteCallback_;
   FontZoomCallback fontZoomCallback_;
+  VoidCallback windowFocusCallback_;
 };

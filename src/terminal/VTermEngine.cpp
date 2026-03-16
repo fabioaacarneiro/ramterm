@@ -1,6 +1,8 @@
 #include "terminal/VTermEngine.hpp"
 #include <algorithm>
+#include <deque>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 void appendCodepointUtf8(std::string& out, uint32_t cp) {
@@ -25,18 +27,20 @@ void appendCodepointUtf8(std::string& out, uint32_t cp) {
 }
 }
 
-VTermEngine::VTermEngine(int rows, int columns)
+VTermEngine::VTermEngine(int rows, int columns, int maxScrollbackLines)
     : rows_(std::max(1, rows)),
       columns_(std::max(1, columns)),
       vterm_(nullptr),
       state_(nullptr),
       screen_(nullptr),
-  usingAltScreen_(false),
-  cursorVisible_(true),
-  primaryBuffer_(rows_, columns_),
-  altBuffer_(rows_, columns_),
-  viewBuffer_(rows_, columns_),
-  scrollOffset_(0) {
+      usingAltScreen_(false),
+      cursorVisible_(true),
+      maxScrollbackLines_(static_cast<size_t>(std::max(0, maxScrollbackLines))),
+      primaryBuffer_(rows_, columns_),
+      altBuffer_(rows_, columns_),
+      viewBuffer_(rows_, columns_),
+      scrollOffset_(0) {
+  if (maxScrollbackLines_ == 0u) maxScrollbackLines_ = 1000u;
   vterm_ = vterm_new(rows_, columns_);
   if (!vterm_) {
     throw std::runtime_error("Failed to create VTerm");
@@ -94,32 +98,52 @@ VTermEngine::~VTermEngine() {
 }
 
 void VTermEngine::resize(int rows, int columns) {
-  rows_ = std::max(1, rows);
-  columns_ = std::max(1, columns);
+  const int newRows = std::max(1, rows);
+  const int newCols = std::max(1, columns);
+  const int oldRows = rows_;
+  const int oldCols = columns_;
 
-  primaryBuffer_.resize(rows_, columns_);
-  altBuffer_.resize(rows_, columns_);
+  rows_ = newRows;
+  columns_ = newCols;
   viewBuffer_.resize(rows_, columns_);
-  scrollback_.clear();
-  scrollOffset_ = 0;
-  selStartRow_ = selStartCol_ = selEndRow_ = selEndCol_ = -1;
 
-  vterm_set_size(vterm_, rows_, columns_);
-  vterm_screen_flush_damage(screen_);
-  syncAll();
+  if (usingAltScreen_) {
+    bufferPreserved_ = false;
+    scrollback_.clear();
+    scrollOffset_ = 0;
+    primaryBuffer_.resize(rows_, columns_);
+    altBuffer_.resize(rows_, columns_);
+    vterm_set_size(vterm_, rows_, columns_);
+    vterm_screen_flush_damage(screen_);
+    syncAll();
+  } else {
+    scrollOffset_ = std::max(0, std::min(scrollOffset_, static_cast<int>(scrollback_.size())));
+    selStartRow_ = selStartCol_ = selEndRow_ = selEndCol_ = -1;
+    if (newRows > oldRows || newCols > oldCols) {
+      bufferPreserved_ = false;
+      primaryBuffer_.resize(rows_, columns_);
+    } else {
+      bufferPreserved_ = true;
+    }
+    altBuffer_.resize(rows_, columns_);
+    vterm_set_size(vterm_, rows_, columns_);
+  }
 }
 
 void VTermEngine::feed(const std::string& bytes) {
-  if (bytes.empty()) {
-    return;
-  }
-
+  if (bytes.empty()) return;
   vterm_input_write(vterm_, bytes.data(), bytes.size());
   vterm_screen_flush_damage(screen_);
+  if (bufferPreserved_) {
+    // Não sincronizar nenhuma célula do libvterm: após shrink o grid dele está truncado;
+    // syncRect(lastRow) sobrescreveria nossa última linha com lixo. Só atualizar cursor.
+    syncCursor();
+  }
 }
 
 void VTermEngine::reset(bool hard) {
   vterm_screen_reset(screen_, hard ? 1 : 0);
+  bufferPreserved_ = false;
   if (hard) {
     scrollback_.clear();
     scrollOffset_ = 0;
@@ -141,32 +165,70 @@ const VTermScreenBuffer& VTermEngine::getPrimaryBuffer() const {
 
 const VTermScreenBuffer& VTermEngine::getActiveBuffer() const {
   if (usingAltScreen_) return altBuffer_;
-  if (scrollOffset_ == 0) return primaryBuffer_;
-  buildViewBuffer();
-  return viewBuffer_;
+  if (scrollOffset_ > 0) {
+    buildViewBuffer();
+    return viewBuffer_;
+  }
+  if (bufferPreserved_ || primaryBuffer_.rows() > rows_ || primaryBuffer_.columns() > columns_) {
+    buildTopLeftView();
+    return viewBuffer_;
+  }
+  return primaryBuffer_;
 }
 
 void VTermEngine::addScrollOffset(int delta) {
   scrollOffset_ = std::max(0, std::min(scrollOffset_ + delta, static_cast<int>(scrollback_.size())));
 }
 
-void VTermEngine::buildViewBuffer() const {
-  const int sb = static_cast<int>(scrollback_.size());
-  if (scrollOffset_ <= 0 || scrollOffset_ > sb || scrollOffset_ > rows_) return;
-  for (int r = 0; r < scrollOffset_; ++r) {
-    const size_t sbIdx = scrollback_.size() - static_cast<size_t>(scrollOffset_) + static_cast<size_t>(r);
-    const std::vector<TermCell>& line = scrollback_[sbIdx];
-    for (int c = 0; c < columns_; ++c) {
-      viewBuffer_.setCell(r, c, line[static_cast<size_t>(c)]);
+void VTermEngine::setScrollOffset(int offset) {
+  scrollOffset_ = std::max(0, std::min(offset, static_cast<int>(scrollback_.size())));
+}
+
+void VTermEngine::buildTopLeftView() const {
+  viewBuffer_.resize(rows_, columns_);
+  const int copyRows = std::min(rows_, primaryBuffer_.rows());
+  const int copyCols = std::min(columns_, primaryBuffer_.columns());
+  for (int r = 0; r < copyRows; ++r) {
+    for (int c = 0; c < copyCols; ++c) {
+      viewBuffer_.setCell(r, c, primaryBuffer_.cell(r, c));
+    }
+    for (int c = copyCols; c < columns_; ++c) {
+      viewBuffer_.setCell(r, c, TermCell{});
     }
   }
-  for (int r = scrollOffset_; r < rows_; ++r) {
+  for (int r = copyRows; r < rows_; ++r) {
     for (int c = 0; c < columns_; ++c) {
-      viewBuffer_.setCell(r, c, primaryBuffer_.cell(r - scrollOffset_, c));
+      viewBuffer_.setCell(r, c, TermCell{});
     }
   }
   TermCursor cur = primaryBuffer_.cursor();
-  cur.row = cur.row + scrollOffset_;
+  cur.row = std::min(cur.row, rows_ - 1);
+  cur.column = std::min(cur.column, columns_ - 1);
+  viewBuffer_.setCursor(cur);
+}
+
+void VTermEngine::buildViewBuffer() const {
+  const int sb = static_cast<int>(scrollback_.size());
+  if (scrollOffset_ <= 0 || scrollOffset_ > sb) return;
+  viewBuffer_.resize(rows_, columns_);
+  const int showScroll = std::min(scrollOffset_, rows_);
+  for (int r = 0; r < showScroll; ++r) {
+    const size_t sbIdx = scrollback_.size() - static_cast<size_t>(scrollOffset_) + static_cast<size_t>(r);
+    const std::vector<TermCell>& line = scrollback_[sbIdx];
+    const int cols = std::min(columns_, static_cast<int>(line.size()));
+    for (int c = 0; c < columns_; ++c) {
+      viewBuffer_.setCell(r, c, c < cols ? line[static_cast<size_t>(c)] : TermCell{});
+    }
+  }
+  const int primaryRows = rows_ - showScroll;
+  for (int r = 0; r < primaryRows; ++r) {
+    const int viewRow = showScroll + r;
+    for (int c = 0; c < columns_; ++c) {
+      viewBuffer_.setCell(viewRow, c, primaryBuffer_.cell(r, c));
+    }
+  }
+  TermCursor cur = primaryBuffer_.cursor();
+  cur.row = showScroll + cur.row;
   viewBuffer_.setCursor(cur);
 }
 
@@ -274,6 +336,10 @@ done_last_used:
 
 int VTermEngine::damageCallback(VTermRect rect, void* user) {
   auto* self = static_cast<VTermEngine*>(user);
+  if (self->bufferPreserved_) {
+    self->syncCursor();
+    return 1;
+  }
   self->syncRect(rect);
   self->syncCursor();
   return 1;
@@ -281,6 +347,9 @@ int VTermEngine::damageCallback(VTermRect rect, void* user) {
 
 int VTermEngine::moverectCallback(VTermRect, VTermRect, void* user) {
   auto* self = static_cast<VTermEngine*>(user);
+  if (self->bufferPreserved_) {
+    return 1;
+  }
   self->syncAll();
   return 1;
 }
@@ -298,7 +367,7 @@ int VTermEngine::settermpropCallback(VTermProp prop, VTermValue* value, void* us
   if (prop == VTERM_PROP_ALTSCREEN) {
     self->usingAltScreen_ = value->boolean != 0;
     self->selStartRow_ = self->selStartCol_ = self->selEndRow_ = self->selEndCol_ = -1;
-    self->syncAll();
+    if (self->usingAltScreen_ || !self->bufferPreserved_) self->syncAll();
     self->syncCursor();
   } else if (prop == VTERM_PROP_CURSORVISIBLE) {
     self->cursorVisible_ = value->boolean != 0;
@@ -321,8 +390,18 @@ int VTermEngine::sbPushlineCallback(int cols, const VTermScreenCell* cells, void
     line[static_cast<size_t>(c)] = self->convertCell(cells[c]);
   }
   self->scrollback_.push_back(std::move(line));
-  while (self->scrollback_.size() > VTermEngine::kMaxScrollbackLines) {
+  while (self->scrollback_.size() > self->maxScrollbackLines_) {
     self->scrollback_.pop_front();
+  }
+  if (!self->usingAltScreen_) {
+    self->primaryBuffer_.shiftRowsUp();
+    VTermRect lastRow{};
+    lastRow.start_row = self->rows_ - 1;
+    lastRow.end_row = self->rows_;
+    lastRow.start_col = 0;
+    lastRow.end_col = self->columns_;
+    self->syncRect(lastRow);
+    self->syncCursor();
   }
   return 1;
 }
@@ -347,6 +426,10 @@ void VTermEngine::syncRect(const VTermRect& rect) {
 }
 
 void VTermEngine::syncAll() {
+  if (bufferPreserved_ && !usingAltScreen_) {
+    syncCursor();
+    return;
+  }
   VTermRect rect{};
   rect.start_row = 0;
   rect.end_row = rows_;

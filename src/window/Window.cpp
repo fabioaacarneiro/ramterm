@@ -1,7 +1,12 @@
 #include "Window.hpp"
+#include <cstdlib>
+#include <cstdio>
 #include <stdexcept>
 
-Window::Window(int width, int height, const std::string &title)
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+Window::Window(int width, int height, const std::string& title, const std::string& iconPath)
     : handle_(nullptr), width_(width), height_(height), inputBuffer_(),
       scrollDelta_(0.0) {
   if (!glfwInit()) {
@@ -31,7 +36,60 @@ Window::Window(int width, int height, const std::string &title)
   glfwSetMouseButtonCallback(handle_, Window::mouseButtonCallback);
   glfwSetCursorPosCallback(handle_, Window::cursorPosCallback);
   glfwSetFramebufferSizeCallback(handle_, Window::framebufferSizeCallback);
+  glfwSetWindowFocusCallback(handle_, Window::windowFocusCallback);
   glfwGetFramebufferSize(handle_, &width_, &height_);
+
+  auto tryLoadIcon = [this](const char* path) -> bool {
+    if (!path || !path[0]) return false;
+    int iconW = 0, iconH = 0, channels = 0;
+    unsigned char* pixels = stbi_load(path, &iconW, &iconH, &channels, STBI_rgb_alpha);
+    if (!pixels || iconW <= 0 || iconH <= 0) {
+      if (pixels) stbi_image_free(pixels);
+      return false;
+    }
+    const int maxIcon = 64;
+    int outW = iconW, outH = iconH;
+    if (iconW > maxIcon || iconH > maxIcon) {
+      if (iconW > iconH) {
+        outW = maxIcon;
+        outH = (iconH * maxIcon) / iconW;
+        if (outH < 1) outH = 1;
+      } else {
+        outH = maxIcon;
+        outW = (iconW * maxIcon) / iconH;
+        if (outW < 1) outW = 1;
+      }
+    }
+    unsigned char* outPixels = pixels;
+    if (outW != iconW || outH != iconH) {
+      outPixels = static_cast<unsigned char*>(malloc(static_cast<size_t>(outW * outH * 4)));
+      if (!outPixels) { stbi_image_free(pixels); return false; }
+      for (int y = 0; y < outH; ++y)
+        for (int x = 0; x < outW; ++x) {
+          int sx = (x * iconW) / outW, sy = (y * iconH) / outH;
+          size_t srcIdx = static_cast<size_t>((sy * iconW + sx) * 4);
+          size_t dstIdx = static_cast<size_t>((y * outW + x) * 4);
+          outPixels[dstIdx] = pixels[srcIdx];
+          outPixels[dstIdx + 1] = pixels[srcIdx + 1];
+          outPixels[dstIdx + 2] = pixels[srcIdx + 2];
+          outPixels[dstIdx + 3] = pixels[srcIdx + 3];
+        }
+      stbi_image_free(pixels);
+    }
+    GLFWimage icon;
+    icon.width = outW;
+    icon.height = outH;
+    icon.pixels = outPixels;
+    glfwSetWindowIcon(handle_, 1, &icon);
+    if (outPixels != pixels) free(outPixels);
+    else stbi_image_free(pixels);
+    return true;
+  };
+
+  if (!iconPath.empty() && tryLoadIcon(iconPath.c_str()))
+    (void)0;
+  else if (!tryLoadIcon("assets/ramterm-logo.png") && !tryLoadIcon("../assets/ramterm-logo.png"))
+    (void)0;
 }
 
 Window::~Window() {
@@ -282,4 +340,10 @@ void Window::framebufferSizeCallback(GLFWwindow *window, int width,
   if (!self) { return; }
   self->width_ = width;
   self->height_ = height;
+}
+
+void Window::windowFocusCallback(GLFWwindow *window, int focused) {
+  auto *self = static_cast<Window *>(glfwGetWindowUserPointer(window));
+  if (!self || focused != GLFW_TRUE) return;
+  if (self->windowFocusCallback_) self->windowFocusCallback_();
 }

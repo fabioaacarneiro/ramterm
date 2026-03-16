@@ -9,19 +9,19 @@
 #include <stdexcept>
 #include <string>
 
-Application::Application()
+Application::Application(const std::string& iconPath)
     : config_(Config::loadFromSearchPaths([]() {
         std::vector<std::string> paths = {"config/config", "../config/config"};
         for (const std::string& p : Config::getDefaultConfigSearchPaths()) paths.push_back(p);
         return paths;
       }())),
-      window_(config_.window.width, config_.window.height, config_.window.title),
+      window_(config_.window.width, config_.window.height, config_.window.title, iconPath),
       fontManager_(FontConfig{
           .path = config_.font.path,
           .size = config_.font.size
       }),
       renderer_(fontManager_),
-      terminal_(24, 80) {
+      terminal_(24, 80, config_.buffer_lines) {
   Renderer::Metrics metrics;
   float cw = static_cast<float>(fontManager_.getGlyphAdvance('M'));
   float ch = static_cast<float>(fontManager_.getLineHeight());
@@ -128,6 +128,8 @@ Application::Application()
     requestRender_ = true;
   });
 
+  window_.setWindowFocusCallback([this]() { requestRender_ = true; });
+
   window_.setCopyCallback([this]() {
     std::string s = terminal_.getSelectedText();
     if (!s.empty()) window_.setClipboardString(s);
@@ -159,6 +161,18 @@ Application::Application()
 
 void Application::run() {
   onResize(window_.getWidth(), window_.getHeight());
+  for (int i = 0; i < 25; ++i) {
+    pumpPty();
+    window_.waitEventsTimeout(0.04);
+  }
+  const int sbLines = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollbackLines();
+  const int sbOffset = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollOffset();
+  renderer_.setScrollState(sbLines, sbOffset);
+  int sr, sc, er, ec;
+  terminal_.getSelection(sr, sc, er, ec);
+  renderer_.setSelection(sr, sc, er, ec);
+  renderer_.render(terminal_.getActiveBuffer());
+  window_.swapBuffers();
   bool needRender = true;
 
   while (!window_.shouldClose() && pty_.isRunning()) {
@@ -195,6 +209,19 @@ void Application::run() {
     }
 
     if (needRender) {
+      const int fbW = window_.getWidth();
+      const int fbH = window_.getHeight();
+      renderer_.setViewport(fbW, fbH);
+      const bool fbSizeChanged = (fbW != windowWidth_ || fbH != windowHeight_);
+      if (fbSizeChanged && fbW >= 10 && fbH >= 10 && !window_.isIconified()) {
+        windowWidth_ = fbW;
+        windowHeight_ = fbH;
+        const int cols = renderer_.columnsForWidth(fbW);
+        const int rows = renderer_.rowsForHeight(fbH);
+        pty_.resize(rows, cols);
+        terminal_.resize(rows, cols);
+        pumpPty();
+      }
       const int sbLines = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollbackLines();
       const int sbOffset = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollOffset();
       renderer_.setScrollState(sbLines, sbOffset);

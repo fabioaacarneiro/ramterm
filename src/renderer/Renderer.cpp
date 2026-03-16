@@ -74,24 +74,9 @@ void Renderer::setSelection(int r0, int c0, int r1, int c1) {
 }
 
 void Renderer::drawScrollbar() {
-  if (scrollbackLines_ <= 0) return;
-  const int visibleRows = rowsForHeight(viewportHeight_);
-  const int totalLines = scrollbackLines_ + visibleRows;
-  if (totalLines <= 0) return;
-  const float h = static_cast<float>(viewportHeight_);
-  const float thumbHeight = (static_cast<float>(visibleRows) / static_cast<float>(totalLines)) * h;
-  const float thumbTop = (static_cast<float>(scrollOffset_) / static_cast<float>(totalLines)) * h;
-  const float x = static_cast<float>(viewportWidth_) - kScrollbarWidth;
-  TermColor track;
-  track.r = track.g = track.b = 0.25f;
-  track.a = 1.f;
-  drawQuad(x, 0.f, kScrollbarWidth, h, track);
-  TermColor thumb;
-  thumb.r = themeForeground_[0] / 255.f;
-  thumb.g = themeForeground_[1] / 255.f;
-  thumb.b = themeForeground_[2] / 255.f;
-  thumb.a = 0.5f;
-  drawQuad(x, thumbTop, kScrollbarWidth, thumbHeight, thumb);
+  /* Barra de rolagem desativada inicialmente; scroll com roda do mouse continua funcionando. */
+  (void)scrollbackLines_;
+  (void)scrollOffset_;
 }
 
 void Renderer::setup2DProjection() const {
