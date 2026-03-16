@@ -56,6 +56,8 @@ struct AppConfig {
     WindowConfig window;
     FontSettings font;
     std::string shell = "bash";
+    /** Número máximo de linhas no buffer de scrollback (ex.: 255). Ao ultrapassar, as mais antigas são removidas. */
+    int buffer_lines = 1000;
 };
 
 class Config {

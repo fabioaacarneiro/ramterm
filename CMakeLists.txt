@@ -9,7 +9,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(PkgConfig REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(yaml-cpp REQUIRED)
+
+# yaml-cpp: find_package falha no macOS/Homebrew; usar PkgConfig como fallback
+find_package(yaml-cpp QUIET)
+if(NOT yaml-cpp_FOUND)
+  pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
+  add_library(yaml-cpp::yaml-cpp INTERFACE IMPORTED)
+  set_target_properties(yaml-cpp::yaml-cpp PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${YAML_CPP_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES "${YAML_CPP_LIBRARIES}"
+    INTERFACE_LINK_DIRECTORIES "${YAML_CPP_LIBRARY_DIRS}"
+  )
+endif()
 
 pkg_check_modules(GLFW REQUIRED glfw3)
 pkg_check_modules(FREETYPE REQUIRED freetype2)
@@ -29,6 +40,7 @@ add_executable(ramterm
 
 target_include_directories(ramterm PRIVATE
     src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${GLFW_INCLUDE_DIRS}
     ${FREETYPE_INCLUDE_DIRS}
     ${VTERM_INCLUDE_DIRS}
@@ -36,7 +48,7 @@ target_include_directories(ramterm PRIVATE
 
 target_link_libraries(ramterm PRIVATE
     OpenGL::GL
-    yaml-cpp
+    yaml-cpp::yaml-cpp
     ${GLFW_LIBRARIES}
     ${FREETYPE_LIBRARIES}
     ${VTERM_LIBRARIES}

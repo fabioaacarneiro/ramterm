@@ -9,7 +9,8 @@
 
 class Application {
 public:
-  Application();
+  /** iconPath: caminho para ramterm-logo.png (opcional; vazio = tenta paths relativos). */
+  explicit Application(const std::string& iconPath = "");
   void run();
   void onResize(int pixelWidth, int pixelHeight);
   /** Retorna true se leu algum dado do PTY (conteúdo do terminal mudou). */
@@ -22,6 +23,8 @@ private:
   int columnFromX(double x, int cols, int pixelWidth) const;
   void snapSelectionEndToSameLineIfAccidental(double x, int& endRow, int& endCol, int cols, int pixelWidth) const;
   void getWordBounds(int row, int col, int& startCol, int& endCol) const;
+  /** Atualiza métricas do renderer a partir do fontManager e redimensiona o grid/PTY. */
+  void applyFontMetricsAndResize();
 
   AppConfig config_;
   Window window_;

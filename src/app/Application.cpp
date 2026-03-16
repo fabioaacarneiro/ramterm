@@ -9,19 +9,19 @@
 #include <stdexcept>
 #include <string>
 
-Application::Application()
+Application::Application(const std::string& iconPath)
     : config_(Config::loadFromSearchPaths([]() {
         std::vector<std::string> paths = {"config/config", "../config/config"};
         for (const std::string& p : Config::getDefaultConfigSearchPaths()) paths.push_back(p);
         return paths;
       }())),
-      window_(config_.window.width, config_.window.height, config_.window.title),
+      window_(config_.window.width, config_.window.height, config_.window.title, iconPath),
       fontManager_(FontConfig{
           .path = config_.font.path,
           .size = config_.font.size
       }),
       renderer_(fontManager_),
-      terminal_(24, 80) {
+      terminal_(24, 80, config_.buffer_lines) {
   Renderer::Metrics metrics;
   float cw = static_cast<float>(fontManager_.getGlyphAdvance('M'));
   float ch = static_cast<float>(fontManager_.getLineHeight());
@@ -119,6 +119,17 @@ Application::Application()
     requestRender_ = true;
   });
 
+  window_.setFontZoomCallback([this](int delta) {
+    int sz = fontManager_.getPixelSize() + delta;
+    if (sz < 6) sz = 6;
+    if (sz > 256) sz = 256;
+    fontManager_.setPixelSize(sz);
+    applyFontMetricsAndResize();
+    requestRender_ = true;
+  });
+
+  window_.setWindowFocusCallback([this]() { requestRender_ = true; });
+
   window_.setCopyCallback([this]() {
     std::string s = terminal_.getSelectedText();
     if (!s.empty()) window_.setClipboardString(s);
@@ -150,6 +161,18 @@ Application::Application()
 
 void Application::run() {
   onResize(window_.getWidth(), window_.getHeight());
+  for (int i = 0; i < 25; ++i) {
+    pumpPty();
+    window_.waitEventsTimeout(0.04);
+  }
+  const int sbLines = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollbackLines();
+  const int sbOffset = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollOffset();
+  renderer_.setScrollState(sbLines, sbOffset);
+  int sr, sc, er, ec;
+  terminal_.getSelection(sr, sc, er, ec);
+  renderer_.setSelection(sr, sc, er, ec);
+  renderer_.render(terminal_.getActiveBuffer());
+  window_.swapBuffers();
   bool needRender = true;
 
   while (!window_.shouldClose() && pty_.isRunning()) {
@@ -186,6 +209,19 @@ void Application::run() {
     }
 
     if (needRender) {
+      const int fbW = window_.getWidth();
+      const int fbH = window_.getHeight();
+      renderer_.setViewport(fbW, fbH);
+      const bool fbSizeChanged = (fbW != windowWidth_ || fbH != windowHeight_);
+      if (fbSizeChanged && fbW >= 10 && fbH >= 10 && !window_.isIconified()) {
+        windowWidth_ = fbW;
+        windowHeight_ = fbH;
+        const int cols = renderer_.columnsForWidth(fbW);
+        const int rows = renderer_.rowsForHeight(fbH);
+        pty_.resize(rows, cols);
+        terminal_.resize(rows, cols);
+        pumpPty();
+      }
       const int sbLines = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollbackLines();
       const int sbOffset = terminal_.isUsingAltScreen() ? 0 : terminal_.getScrollOffset();
       renderer_.setScrollState(sbLines, sbOffset);
@@ -212,6 +248,23 @@ void Application::onResize(int pixelWidth, int pixelHeight) {
   terminal_.resize(rows, cols);
 
   pumpPty();
+}
+
+void Application::applyFontMetricsAndResize() {
+  Renderer::Metrics metrics;
+  float cw = static_cast<float>(fontManager_.getGlyphAdvance('M'));
+  float ch = static_cast<float>(fontManager_.getLineHeight());
+  float asc = static_cast<float>(fontManager_.getAscender());
+  const int sz = fontManager_.getPixelSize();
+  if (cw < 4.0f) cw = static_cast<float>(sz) * 0.6f;
+  if (ch < 4.0f) ch = static_cast<float>(sz) * 1.2f;
+  if (asc < 1.0f) asc = ch * 0.8f;
+  metrics.cellWidth = cw;
+  metrics.cellHeight = ch;
+  metrics.ascent = asc;
+  metrics.fontSize = static_cast<float>(sz);
+  renderer_.setMetrics(metrics);
+  onResize(windowWidth_, windowHeight_);
 }
 
 bool Application::pumpPty() {

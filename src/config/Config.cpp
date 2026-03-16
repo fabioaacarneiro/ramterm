@@ -268,6 +268,13 @@ AppConfig Config::load(const std::string& path) {
             }
         }
 
+        if (const auto bufLines = root["buffer_lines"]) {
+            try {
+                int n = bufLines.as<int>();
+                if (n >= 0 && n <= 100000) config.buffer_lines = n;
+            } catch (...) {}
+        }
+
         if (const auto shellNode = root["shell"]) {
             std::string shell = shellNode.as<std::string>();
             if (!shell.empty()) {

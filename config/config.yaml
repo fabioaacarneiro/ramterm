@@ -17,10 +17,11 @@ window:
 # Cores em 0–255 (r, g, b; a só em background e font_color).
 theme:
   use_default_theme: false
+  
   background: { r: 40, g: 42, b: 54, a: 255 }
   font_color: { r: 248, g: 248, b: 242, a: 255 }
-  # Cor do destaque da seleção (r, g, b, a em 0–255; a = transparência, ex.: 89 ≈ 0.35). Se omitido, usa font_color com alpha 89.
-  selection: { r: 24, g: 248, b: 242, a: 89 }
+  selection: { r: 24, g: 248, b: 242, a: 89 } # Cor do destaque da seleção (r, g, b, a em 0–255; a = transparência, ex.: 89 ≈ 0.35). Se omitido, usa font_color com alpha 89.
+
   # Paleta ANSI: 0=preto, 1=vermelho, 2=verde, 3=amarelo, 4=azul, 5=magenta, 6=cyan, 7=branco; 8–15=brilho alto (Dracula)
   palette_0:  { r: 40,  g: 42,  b: 54  }
   palette_1:  { r: 255, g: 85,  b: 85  }
@@ -39,11 +40,13 @@ theme:
   palette_14: { r: 139, g: 233, b: 253 }
   palette_15: { r: 255, g: 255, b: 255 }
 
+# Buffer de scrollback: quantas linhas guardar (ex.: 255). Ao ultrapassar, as mais antigas são removidas.
+# O conteúdo fica bufferizado; no resize, o que for escondido quebra para a linha de baixo (reflow).
+buffer_lines: 1000
+
 # font.path: só o nome do arquivo (ex.: FiraCodeNerdFontMono-Regular.ttf) ou caminho completo
 font:
   path: "FiraCodeNerdFontMono-Regular.ttf"
   size: 16
 
 shell: "bash"
-#shell: "/home/fabio/.local/bin/oh-my-posh --config /home/fabio/.config/oh-my-posh/config.toml"
-

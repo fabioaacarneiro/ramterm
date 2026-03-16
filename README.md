@@ -32,6 +32,12 @@ sudo dnf install cmake gcc-c++ glfw-devel freetype-devel vterm-devel yaml-cpp-de
 sudo apt install cmake g++ libglfw3-dev libfreetype6-dev libvterm-dev libyaml-cpp-dev
 ```
 
+### Instalação (macOS / Homebrew)
+
+```bash
+brew install cmake glfw freetype libvterm yaml-cpp pkg-config
+```
+
 ## Build
 
 ```bash
@@ -39,6 +45,14 @@ git clone https://github.com/SEU_USUARIO/RamTerm.git
 cd RamTerm
 mkdir build && cd build
 cmake ..
+make
+./ramterm
+```
+
+**macOS:** Se o CMake não encontrar o yaml-cpp, use o prefix do Homebrew antes de `cmake ..`:
+
+```bash
+cmake -DCMAKE_PREFIX_PATH="$(brew --prefix)" ..
 make
 ./ramterm
 ```
@@ -62,38 +76,64 @@ O RamTerm procura o arquivo de configuração na seguinte ordem (primeiro encont
 
 Se nenhum for encontrado, usam-se os valores padrão.
 
-Exemplo mínimo:
+Exemplo completo (tema Dracula, paleta ANSI, scrollback):
 
 ```yaml
 window:
   width: 800
   height: 600
+  # title: "RamTerm"
 
 theme:
-  use_default_theme: false   # true = Tango Dark
+  use_default_theme: false
   background: { r: 40, g: 42, b: 54, a: 255 }
   font_color: { r: 248, g: 248, b: 242, a: 255 }
-  # Cor do destaque da seleção (r, g, b, a 0–255; a = transparência). Se omitido, usa font_color com alpha 89.
-  selection: { r: 248, g: 248, b: 242, a: 89 }
+  selection: { r: 24, g: 248, b: 242, a: 89 }
+
+  palette_0:  { r: 40,  g: 42,  b: 54  }
+  palette_1:  { r: 255, g: 85,  b: 85  }
+  palette_2:  { r: 80,  g: 250, b: 123 }
+  palette_3:  { r: 241, g: 250, b: 140 }
+  palette_4:  { r: 189, g: 147, b: 249 }
+  palette_5:  { r: 255, g: 121, b: 198 }
+  palette_6:  { r: 139, g: 233, b: 253 }
+  palette_7:  { r: 248, g: 248, b: 242 }
+  palette_8:  { r: 98,  g: 114, b: 164 }
+  palette_9:  { r: 255, g: 85,  b: 85  }
+  palette_10: { r: 80,  g: 250, b: 123 }
+  palette_11: { r: 241, g: 250, b: 140 }
+  palette_12: { r: 189, g: 147, b: 249 }
+  palette_13: { r: 255, g: 121, b: 198 }
+  palette_14: { r: 139, g: 233, b: 253 }
+  palette_15: { r: 255, g: 255, b: 255 }
+
+buffer_lines: 1000
 
 font:
-  path: "FiraCodeNerdFontMono-Regular.ttf"   # só o nome ou caminho completo
+  path: "FiraCodeNerdFontMono-Regular.ttf"
   size: 16
 
 shell: "bash"
 ```
 
-- **font.path:** nome do arquivo (ex.: `FiraCodeNerdFontMono-Regular.ttf`) ou caminho absoluto. O programa procura em `~/.local/share/fonts/`, `/usr/share/fonts/`, etc.
-- **theme:** `use_default_theme: true` usa Tango Dark; `false` usa as cores definidas (incluindo `palette_0`–`palette_15` para a paleta ANSI).
-- **theme.selection:** cor do destaque da seleção de texto (r, g, b, a em 0–255). O alpha controla a transparência (ex.: 89 ≈ 0,35). Se omitido, usa a cor do texto com alpha 89.
+- **window:** `width`, `height` em pixels; `title` opcional. O ícone da janela (dock/barra de tarefas) usa `assets/ramterm-logo.png` se existir (ao rodar do diretório do build, o programa procura em `../assets/`).
+- **theme:** `use_default_theme: true` usa Tango Dark; `false` usa as cores acima. Cores em 0–255 (r, g, b; `a` só em `background`, `font_color` e `selection`). `palette_0`–`palette_15` = paleta ANSI (0–7 normais, 8–15 brilho alto).
+- **theme.selection:** cor do destaque da seleção; alpha = transparência (ex.: 89 ≈ 0,35). Se omitido, usa `font_color` com alpha 89.
+- **buffer_lines:** número de linhas de scrollback.
+- **font.path:** nome do arquivo (ex.: `FiraCodeNerdFontMono-Regular.ttf`) ou caminho absoluto. Procura em `~/.local/share/fonts/`, `/usr/share/fonts/`, no macOS em `~/Library/Fonts/`, etc.
+- **shell:** comando do shell (ex.: `bash`, `zsh`).
 
 ## Estrutura do projeto
 
 ```
 RamTerm/
 ├── CMakeLists.txt
+├── assets/
+│   └── ramterm-logo.png # ícone da janela (dock/barra de tarefas)
 ├── config/
 │   └── config.yaml      # configuração (tema, fonte, shell)
+├── third_party/
+│   └── stb_image.h      # carregador de imagem (PNG) para o ícone
 ├── src/
 │   ├── app/             # loop principal, PTY
 │   ├── config/          # leitura do YAML

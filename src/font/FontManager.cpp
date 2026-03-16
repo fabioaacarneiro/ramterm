@@ -37,6 +37,16 @@ int FontManager::getPixelSize() const {
   return config_.size;
 }
 
+void FontManager::setPixelSize(int sizePx) {
+  if (sizePx < 6) sizePx = 6;
+  if (sizePx > 256) sizePx = 256;
+  config_.size = sizePx;
+  if (face_) {
+    FT_Set_Pixel_Sizes(face_, 0, config_.size);
+  }
+  glyphCache_.clear();
+}
+
 const std::string &FontManager::getFontPath() const {
   return config_.path;
 }

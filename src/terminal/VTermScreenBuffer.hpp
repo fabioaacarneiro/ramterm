@@ -54,6 +54,9 @@ public:
   void setCursor(const TermCursor& cursor);
   const TermCursor& cursor() const;
 
+  /** Desloca todas as linhas uma para cima (row 1→0, 2→1, ...); última linha fica vazia. */
+  void shiftRowsUp();
+
 private:
   int rows_ = 0;
   int columns_ = 0;

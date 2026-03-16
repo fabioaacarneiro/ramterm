@@ -75,6 +75,19 @@ const TermCursor& VTermScreenBuffer::cursor() const {
   return cursor_;
 }
 
+void VTermScreenBuffer::shiftRowsUp() {
+  if (rows_ < 2) return;
+  for (int r = 0; r < rows_ - 1; ++r) {
+    for (int c = 0; c < columns_; ++c) {
+      cells_[static_cast<size_t>(r * columns_ + c)] =
+          cells_[static_cast<size_t>((r + 1) * columns_ + c)];
+    }
+  }
+  for (int c = 0; c < columns_; ++c)
+    cells_[static_cast<size_t>((rows_ - 1) * columns_ + c)] = TermCell{};
+  if (cursor_.row > 0) cursor_.row--;
+}
+
 int VTermScreenBuffer::index(int row, int column) const {
   return row * columns_ + column;
 }
